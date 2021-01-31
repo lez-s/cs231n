@@ -89,7 +89,7 @@ class TwoLayerNet(object):
         #OK，好吧，以上实际上是用不到的。
         h1=np.dot(X,W1)+b1  
         h2=h1
-        h2[h2<0]=0        
+        h2[h2<=0]=0  #上一行和这一行为Relu函数，把<0的值设成0
         scores=np.dot(h2,W2)+b2
         #print(h2)
 
@@ -120,7 +120,6 @@ class TwoLayerNet(object):
         loss += reg*(np.sum(W1*W1)+np.sum(W2*W2)) #注意此处要加上W1和W2 的正则化
         
 
-
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         # Backward pass: compute gradients
@@ -131,18 +130,20 @@ class TwoLayerNet(object):
         # grads['W1'] should store the gradient on W1, and be a matrix of same size #
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-        scores_pob_dW = scores_pob #新建一个score_possible矩阵
-        scores_pob_dW[np.arange(num_train),y] -= 1 #把所有正确的列的概率-1 (5,3)
+        dscores_pob= scores_pob #新建一个score_possible矩阵
+        dscores_pob[np.arange(num_train),y] -= 1 #把所有正确的列的概率-1 (5,3)
+        dscores_pob /= num_train
 
-        dW2= np.dot(h2.T,scores_pob_dW)/num_train + 2*reg*W2
+        dW2= np.dot(h2.T,dscores_pob) + 2*reg*W2
         grads['W2']=dW2
 
-        dh2=np.dot(scores_pob_dW,W2.T)/num_train
+        dh2=np.dot(dscores_pob,W2.T) 
         #h1<0的地方，dh2同样的地方=0（即dh1） 因为是Relu函数
-        h1_0=np.where(h1<0) #找出h1<0的index
-        dh1=dh2 
-        dh1[h1_0]=0 #把h1<0的地方设置成0
-        dW1=np.dot(X.T,dh1)/num_train
+        h1_0=np.where(h1<=0) #找出h1<0的index
+        dh1=dh2.copy()
+        dh1[h1<=0]=0 #把h1<=0的地方设置成0
+        #!!!!之前写的是h1<0,一个=号为什么会有那么大的差距！！！！！
+        dW1=np.dot(X.T,dh1) + 2*reg*W1
         grads['W1']=dW1
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -186,8 +187,11 @@ class TwoLayerNet(object):
             # them in X_batch and y_batch respectively.                             #
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-            pass
+            num_batch=np.random.choice(num_train,size=batch_size,replace = True) 
+            #大小写敏感，True和true不同。从train data选取batch
+            X_batch=X[num_batch,:]
+            y_batch=y[num_batch]
+            
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -203,7 +207,8 @@ class TwoLayerNet(object):
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            pass
+            self.params['W1'] += - learning_rate * grads['W1']
+            self.params['W2'] += - learning_rate * grads['W2']
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -249,8 +254,16 @@ class TwoLayerNet(object):
         ###########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
-
+        W1, b1 = self.params['W1'], self.params['b1']
+        W2, b2 = self.params['W2'], self.params['b2']
+        N, D = X.shape
+        num_train=X.shape[0]
+        h1=np.dot(X,W1)+b1  
+        h2=h1
+        h2[h2<=0]=0  #上一行和这一行为Relu函数，把<0的值设成0
+        scores=np.dot(h2,W2)+b2        
+        scores_sort=np.argsort(-scores,axis=1) #-score为从大到小排列
+        y_pred=scores_sort[:,0] #选取每列最大的
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         return y_pred
